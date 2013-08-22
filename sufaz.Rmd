@@ -1,0 +1,46 @@
+Desembarcos SUFAZ
+========================================================
+
+
+Lectura de Datos
+-------------------
+
+```{r setup, cache=FALSE, include=FALSE, echo=FALSE}
+opts_chunk$set(comment="", warning=FALSE, background="#E0E0E0")
+library(ggplot2)
+library(Hmisc)
+library(plyr)
+library(reshape2)
+library(car)  ## para usar la función recode
+options(width=120)
+descstat=function(x)c(media=mean(x, na.rm=T), mediana=median(x, na.rm=T), mínimo=min(x, na.rm=T), máximo=max(x,na.rm=T), de=sd(x, na.rm=T), cv=100*sd(x, na.rm=T)/mean(x, na.rm=T), n=length(x))   ## función para calcular estadísticos básicos
+```
+
+```{r data_read}
+setwd("~/Proyectos/SUFAZ/datos")
+sufaz <- read.csv("~/Proyectos/SUFAZ/datos/sufaz.csv")
+sufaz$EspKg[sufaz$EspKG==0]=0.1
+sufaz$EspKg[sufaz$EspKG==0]
+``` 
+
+
+Resumen de datos
+--------------------
+
+```{r data_aggregation}
+### Agregar por embarcación
+sufaz.ag=ddply(sufaz, .(Comunidad, Mes, Year, Cod, EspGroup), summarize, EspKg=sum(EspKg))
+
+### Agregar por especie grupo
+sufaz.EspAg=ddply(sufaz.ag, .(Comunidad, Mes, Year, EspGroup), summarize, EspKg.media=mean(EspKg, na.rm=T), EspKg.median=median(EspKg,na.rm=T), EspKg.sd=sd(EspKg, na.rm=T), EspKg.max=max(EspKg, na.rm=T), EspKg.min=min(EspKg, na.rm=T), EspKg.n=length(EspKg))
+sufaz.EspAg
+
+### Agregar por especie grupo sin mes/año
+sufaz.EspAg.nodate=ddply(sufaz.ag, .(Comunidad, EspGroup), summarize, EspKg.media=mean(EspKg, na.rm=T), EspKg.median=median(EspKg,na.rm=T), EspKg.sd=sd(EspKg, na.rm=T), EspKg.max=max(EspKg, na.rm=T), EspKg.min=min(EspKg, na.rm=T), EspKg.n=length(EspKg), EspKg.p75=quantile(EspKg, probs=0.75), EspKg.p90=quantile(EspKg, probs=0.90), EspKg.p95=quantile(EspKg, probs=0.95))
+sufaz.EspAg.nodate
+
+## en logaritmo
+sufaz.EspAg.log=ddply(sufaz.ag, .(Comunidad, EspGroup), summarize, suma=sum(EspKg, na.rm=T), EspKg.media=mean(log(EspKg), na.rm=T), EspKg.sd=sd(log(EspKg), na.rm=T))
+sufaz.EspAg.log
+save.image("sufaz.RData")
+```

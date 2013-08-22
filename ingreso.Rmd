@@ -1,0 +1,28 @@
+Ingreso de pescadores en SUFAZ
+========================================================
+
+Los datos son los reportados por el censo de pescadores de PDVSA. Uso la columna "Volumen de captura diaria". Antes había calculado el promedio ponderado del precio usando los datos de especie -precio reportado por embarcación. Este valor es 26 Bs/kg
+
+
+```{r dataread}
+embarcaciones <- read.csv("~/Proyectos/SUFAZ/datos/embarcaciones.csv")
+ingreso=embarcaciones$CAPTURA
+ingreso[ingreso==0]=NA    ## limpio los datos un poco para quitar los extremos
+ingreso[ingreso>1200]=NA
+precio=26
+faenas=22
+ingreso=ingreso*faenas*precio    ## ingreso mensual
+quantile(ingreso, probs=c(0.05,0.1,0.25,0.50,0.75, 0.90, 0.95), na.rm=T)
+
+```
+
+Distribución del ingreso mensual por embarcación
+
+```{r fig.width=10, fig.height=6, dependson="dataread"}
+hh=hist(ingreso, col="blue", breaks=20)
+hh$mids
+hh$counts
+plot(cumsum(100*hh$counts/sum(hh$counts))~hh$mids, pch=19, ty="b")
+
+```
+

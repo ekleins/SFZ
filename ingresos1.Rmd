@@ -1,0 +1,224 @@
+Calculo de Ingresos Netos
+========================================================
+
+```{r print_time, echo=FALSE, comment="FECHA: "}
+print(Sys.time())
+```
+Lectura de datos y re codificación
+------------------
+
+
+```{r setup, cache=FALSE, include=FALSE}
+opts_chunk$set(comment="", warning=FALSE, message=FALSE, background="#E0E0E0")
+library(ggplot2)
+library(Hmisc)
+library(plyr)
+library(reshape2)
+library(car)  ## para usar la función recode
+options(width=120)
+descstat=function(x)c(media=mean(x, na.rm=T), mediana=median(x, na.rm=T), mínimo=min(x, na.rm=T), máximo=max(x,na.rm=T), de=sd(x, na.rm=T), cv=100*sd(x, na.rm=T)/mean(x, na.rm=T), n=length(x))   ## función para calcular estadísticos básicos
+zero2NA=function(x)ifelse(x==0, NA, x)
+
+
+```
+
+```{r data_import, echo=FALSE}
+setwd("~/Proyectos/SUFAZ/datos")
+encuestas <- read.csv("~/Proyectos/SUFAZ/datos/encuestas.csv")
+encuestas$Comunidad[encuestas$Comunidad=="RÍO SECO"]="RIO SECO"   ##Hay unos rio seco con acento. Los acomodo
+encuestas$Comunidad=factor(encuestas$Comunidad)
+
+## calculo los costos opertivos por embarcación
+##cambio NA por 0
+encuestas$CostoPorFaenaGasolina[is.na(encuestas$CostoPorFaenaGasolina)]=0
+encuestas$CostoPorFaenaAceite[is.na(encuestas$CostoPorFaenaAceite)]=0
+encuestas$CostoPorFaenaComida[is.na(encuestas$CostoPorFaenaComida)]=0
+encuestas$CostoPorFaenaHielo[is.na(encuestas$CostoPorFaenaHielo)]=0
+encuestas$CostoPorFaenaCarnada[is.na(encuestas$CostoPorFaenaCarnada)]=0
+encuestas$CostoPorFaenaGasto1[is.na(encuestas$CostoPorFaenaGasto1)]=0
+encuestas$CostoPorFaenaGasto2[is.na(encuestas$CostoPorFaenaGasto2)]=0
+encuestas$CostoFaena=with(encuestas, CostoPorFaenaGasolina+CostoPorFaenaAceite+CostoPorFaenaComida+CostoPorFaenaHielo+CostoPorFaenaCarnada+CostoPorFaenaGasto1+CostoPorFaenaGasto2)
+
+```
+
+
+
+```{r especies_read, echo=FALSE, warning=FALSE} 
+## Lectura archivo de Especies
+## Aqui se usa el archivo especies
+especies <- read.csv("~/Proyectos/SUFAZ/datos/especies.csv")
+## re clasificación de las comunidades
+especies$Comunidad[especies$Comunidad=="RÍO SECO"]="RIO SECO"   ##Hay unos rio seco con acento. Los acomodo
+especies$Comunidad=factor(especies$Comunidad)
+especies0=especies
+especies$Comunidad[especies$Comunidad=="OCOROTE"]="RIO SECO"
+especies$Comunidad[especies$Comunidad=="PRUDENCIO"]="CAYUDE"
+especies$Comunidad[especies$Comunidad=="LA HUESA"]="CAYUDE"
+especies$Comunidad[especies$Comunidad=="EL COCUY"]="MEDANO BLANCO"
+especies$Comunidad[especies$Comunidad=="EL MURO"]="MEDANO BLANCO"
+especies$Comunidad[especies$Comunidad=="POPORO"]="MEDANO BLANCO"
+especies$Comunidad[especies$Comunidad=="TIGUADARE"]="PUNTA CARDON"
+especies$Comunidad=factor(especies$Comunidad)
+
+print("Número de respuestas por comunidad")
+table(especies$Comunidad)
+especies.melt=melt(especies, id=c("NumEnc", "Comunidad", "Especie", "EspRank", "EspPrecio", "EspKg"))
+names(especies.melt)=c("NumEnc", "Comunidad", "Especie","EspRank", "EspPrecio", "EspKg", "Mes", "Pesca")
+
+## Clean up
+especies.melt=especies.melt[!especies.melt$Especie=="NINGUNA",]
+especies.melt=especies.melt[!especies.melt$EspKg==0,]
+especies.melt=especies.melt[complete.cases(especies.melt),]
+## Corrijo los precios de 600 y 800 que están en algunas encuestas de Rio Seco
+especies.melt$EspPrecio[especies.melt$EspPrecio==600]=60
+especies.melt$EspPrecio[especies.melt$EspPrecio==800]=80
+
+especies.melt0=especies.melt
+especies.melt$Pesca=as.logical(especies.melt$Pesca)
+especies.melt=especies.melt[especies.melt$Pesca,]  ## elimino los meses donde NO pescan
+especies.melt$EspGroup=rep(NA, length(especies.melt$Especie))
+
+## Agrupo las especies en las categorías de grupo de especie
+especies.melt$EspGroup[especies.melt$Especie=="BAGRE"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="CATALANA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="CHICHARRA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="CONCHUA-MERLUZA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="ANCHOA"]="PELAGICOS"
+especies.melt$EspGroup[especies.melt$Especie=="CACHICATO"]="PELAGICOS"
+especies.melt$EspGroup[especies.melt$Especie=="CAMARON"]="CAMARON"
+especies.melt$EspGroup[especies.melt$Especie=="CAMARÓN-LANGOSTINO"]="CAMARON"
+especies.melt$EspGroup[especies.melt$Especie=="CARRACHANA-CABAÑA"]="PELAGICOS"
+especies.melt$EspGroup[especies.melt$Especie=="CARACHANA-CABAÑA"]="PELAGICOS"
+especies.melt$EspGroup[especies.melt$Especie=="CARITE"]="PELAGICOS"
+especies.melt$EspGroup[especies.melt$Especie=="COJINÚA-CUJINUA"]="PELAGICOS"
+especies.melt$EspGroup[especies.melt$Especie=="COROCORO-PEORRO-MOCUSO"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="CUNARO"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="CURVINA-GUABINA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="CURVINATA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="JUREL"]="JUREL"
+especies.melt$EspGroup[especies.melt$Especie=="LANGOSTINO"]="CAMARON"
+especies.melt$EspGroup[especies.melt$Especie=="LISA-LEBRANCHE-GUARANARO"]="LISA"
+especies.melt$EspGroup[especies.melt$Especie=="MERO VARIOS"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="MOJARRA-CAITIPA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="PALOMETA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="PAMPANO"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="PARGO"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="PICUA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="RAYA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="REY"]="PELAGICOS"
+especies.melt$EspGroup[especies.melt$Especie=="RÓBALO-ROBALO"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="RONCO-RONCADOR"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="TAJALÍ-TAHALÍ-MACHETE"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="TONQUICHA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="ZORRA"]="PELAGICOS"
+especies.melt$EspGroup=as.factor(especies.melt$EspGroup)
+print("Número de Respuestas por grupo de especie")
+table(especies.melt$EspGroup)
+
+
+## Calculo el ingreso bruto por faena por especie
+especies.melt$EspIngB=especies.melt$EspKg*especies.melt$EspPrecio
+
+### NOTA. El data frame especies.melt contiene los Kg e Ingresos por FAENA sumados en los meses que pesca. Es decir si dice que pesca 6 kg de camaron en los meses de enero, feb y diciembre el total es 18 kg.
+
+```
+
+Creación del archivo integrado por embarcación
+--------------------
+
+```{r embarcacion.integrado}
+embarcacion=ddply(especies.melt, .(NumEnc, Comunidad, EspGroup), summarize, EspKg.Total=sum(EspKg), EspIngB.Total=sum(EspIngB))
+embarcacion.Kg=dcast(embarcacion, NumEnc+Comunidad~EspGroup, value.var="EspKg.Total", fill=0)
+embarcacion.IngB=dcast(embarcacion, NumEnc+Comunidad~EspGroup, value.var="EspIngB.Total", fill=0)
+names(embarcacion.IngB)=c("NumEnc", "Comunidad", "CAMARON.Bs", "DEMERSALES.Bs", "JUREL.Bs", "LISA.Bs", "PELAGICOS.Bs")
+names(embarcacion.Kg)=c("NumEnc", "Comunidad", "CAMARON.Kg", "DEMERSALES.Kg", "JUREL.Kg", "LISA.Kg", "PELAGICOS.Kg")
+
+## Calculo meses de pesca por EspGroup
+Pesca.meses=dcast(especies.melt, NumEnc+Comunidad+EspGroup~Mes)
+x2logic=function(x) ifelse(x>0, TRUE, FALSE)  ## función para convertir a boolean
+Pesca.meses.logic=sapply(Pesca.meses[4:15], x2logic)
+Pesca.meses$MesesPesca=rowSums(Pesca.meses.logic)
+Pesca.meses.EspGr=dcast(Pesca.meses, NumEnc+Comunidad~EspGroup, fill=0)
+names(Pesca.meses.EspGr)=c("NumEnc","Comunidad", "CAMARON.Meses", "DEMERSALES.Meses", "JUREL.Meses","LISA.Meses", "PELAGICOS.Meses")
+
+## Uno los archivos
+embarcacion.integrado=merge(embarcacion.Kg, embarcacion.IngB)
+##mergecon meses de pesca
+embarcacion.integrado=merge(embarcacion.integrado, Pesca.meses.EspGr)
+## merge con encuestas
+embarcacion.integrado2=merge(encuestas[c("NumEnc", "NumFaenasxDia", "NoFaenasMes", "CostoFaena", "DiasAusenciaMes")], embarcacion.integrado)
+```
+
+```{r KgMes, echo=FALSE}
+## kg por mes (corregir que los kg están sumados tantos meses pescan)
+## OJO Dependiendo si se coloca 0 o NA en el caso de que no se reporten capturasla cosa cambia.
+
+print("Calculos basados en TODAS las embarcaciones (no Pesca --> replace by 0)")
+
+embarcacion.integrado2$KgMes.Camaron=ifelse(embarcacion.integrado2$CAMARON.Meses!=0, with(embarcacion.integrado2, CAMARON.Kg/CAMARON.Meses),0)
+embarcacion.integrado2$KgMes.Demersales=ifelse(embarcacion.integrado2$DEMERSALES.Meses!=0, with(embarcacion.integrado2,DEMERSALES.Kg/DEMERSALES.Meses),0)
+embarcacion.integrado2$KgMes.Jurel=ifelse(embarcacion.integrado2$JUREL.Meses!=0, with(embarcacion.integrado2, JUREL.Kg/JUREL.Meses),0)
+embarcacion.integrado2$KgMes.Lisa=ifelse(embarcacion.integrado2$LISA.Meses!=0, with(embarcacion.integrado2, LISA.Kg/LISA.Meses),0)
+embarcacion.integrado2$KgMes.Pelagicos=ifelse(embarcacion.integrado2$PELAGICOS.Meses!=0, with(embarcacion.integrado2, PELAGICOS.Kg/PELAGICOS.Meses),0)
+
+ddply(embarcacion.integrado2, .(Comunidad), summarize, CamaronKg.media=mean(KgMes.Camaron, na.rm=T), CamaronKg.median=median(KgMes.Camaron, na.rm=T), CamaronKg.sd=sd(KgMes.Camaron,na.rm=T), CamaronKg.min=min(KgMes.Camaron, na.rm=T), CamaronKg.max=max(KgMes.Camaron, na.rm=T))
+
+ddply(embarcacion.integrado2, .(Comunidad), summarize, DemersalesKg.media=mean(KgMes.Demersales, na.rm=T), DemersalesKg.median=median(KgMes.Demersales, na.rm=T), DemersalesKg.sd=sd(KgMes.Demersales,na.rm=T), DemersalesKg.min=min(KgMes.Demersales, na.rm=T), DemersalesKg.max=max(KgMes.Demersales, na.rm=T))
+
+ddply(embarcacion.integrado2, .(Comunidad), summarize, LisaKg.media=mean(KgMes.Lisa, na.rm=T), LisaKg.median=median(KgMes.Lisa, na.rm=T), LisaKg.sd=sd(KgMes.Lisa,na.rm=T), LisaKg.min=min(KgMes.Lisa, na.rm=T), LisaKg.max=max(KgMes.Lisa, na.rm=T))
+
+ddply(embarcacion.integrado2, .(Comunidad), summarize, JurelKg.media=mean(KgMes.Jurel, na.rm=T), JurelKg.median=median(KgMes.Jurel, na.rm=T), JurelKg.sd=sd(KgMes.Jurel,na.rm=T), JurelKg.min=min(KgMes.Jurel, na.rm=T), JurelKg.max=max(KgMes.Jurel, na.rm=T))
+
+ddply(embarcacion.integrado2, .(Comunidad), summarize, PelagicosKg.media=mean(KgMes.Pelagicos, na.rm=T), PelagicosKg.median=median(KgMes.Pelagicos, na.rm=T), PelagicosKg.sd=sd(KgMes.Pelagicos,na.rm=T), PelagicosKg.min=min(KgMes.Pelagicos, na.rm=T), PelagicosKg.max=max(KgMes.Pelagicos, na.rm=T))
+```
+
+```{r IngresoMes}
+##Ingreso neto por mes
+NetoMes.Camaron=ifelse(embarcacion.integrado2$CAMARON.Meses!=0, with(embarcacion.integrado2, ((CAMARON.Bs/CAMARON.Meses-CostoFaena)*DiasAusenciaMes)*CAMARON.Meses/12),0)
+NetoMes.Demersales=ifelse(embarcacion.integrado2$DEMERSALES.Meses!=0, with(embarcacion.integrado2,((DEMERSALES.Bs/DEMERSALES.Meses-CostoFaena)*DiasAusenciaMes)*DEMERSALES.Meses/12),0)
+NetoMes.Jurel=ifelse(embarcacion.integrado2$JUREL.Meses!=0, with(embarcacion.integrado2, ((JUREL.Bs/JUREL.Meses-CostoFaena)*DiasAusenciaMes)*JUREL.Meses/12),0)
+NetoMes.Lisa=ifelse(embarcacion.integrado2$LISA.Meses!=0, with(embarcacion.integrado2, ((LISA.Bs/LISA.Meses-CostoFaena)*DiasAusenciaMes)*LISA.Meses/12),0)
+NetoMes.Pelagicos=ifelse(embarcacion.integrado2$PELAGICOS.Meses!=0, with(embarcacion.integrado2, ((PELAGICOS.Bs/PELAGICOS.Meses-CostoFaena)*DiasAusenciaMes)*PELAGICOS.Meses/12),0)
+
+embarcacion.integrado2$TotalNetoMes=NetoMes.Camaron+NetoMes.Demersales+NetoMes.Jurel+NetoMes.Lisa+NetoMes.Pelagicos
+
+
+print("La estructura del archivo integrado por embarcación")
+str(embarcacion.integrado2)
+write.csv(embarcacion.integrado2, file="embarcacion_integrado.csv")
+
+
+```
+
+Ingreso Neto Mensual Estimado
+--------------
+
+```{r ingreso_netomensual, echo=FALSE, warning=FALSE}
+Ingreso.Mensual.Neto=ddply(embarcacion.integrado2, .(Comunidad), summarize, Mensual.medio=mean(TotalNetoMes, na.rm=T), Mensual.mediana=median(TotalNetoMes, na.rm=T), Mensual.sd=sd(TotalNetoMes, na.rm=T), Mensual.es=sd(TotalNetoMes, na.rm=T)/sqrt(length(TotalNetoMes)), Mensual.min=min(TotalNetoMes, na.rm=T), Mensual.max=max(TotalNetoMes, na.rm=T))
+
+print(Ingreso.Mensual.Neto)
+
+
+## Percentiles del Ingreso Mensual Neto
+
+ddply(embarcacion.integrado2, .(Comunidad), summarize, p5=quantile(TotalNetoMes, na.rm=T, probs=0.05), p10=quantile(TotalNetoMes, na.rm=T, probs=0.1), p25=quantile(TotalNetoMes, na.rm=T, probs=0.25), p50=quantile(TotalNetoMes, na.rm=T, probs=0.5), p75=quantile(TotalNetoMes, na.rm=T, probs=0.75), p90=quantile(TotalNetoMesl, na.rm=T, probs=0.9), p95=quantile(TotalNetoMes, na.rm=T, probs=0.95))
+```
+
+```{r ingreso_boxplot, fig.width=8, fig.height=6}
+ii=ggplot(embarcacion.integrado2, aes(Comunidad, TotalNetoMes))
+ii+geom_boxplot()+ylim(0,200000)
+```
+
+```{r ingreso_histogram,fig.width=16, fig.height=8}
+ii=ggplot(embarcacion.integrado2, aes(TotalNetoMes))
+ii+geom_histogram()+facet_grid(Comunidad~.)+xlim(0,250000)
+```
+
+
+
+Guardo el WorkSpace
+---------------
+
+```{r save.workspace}
+save.image("ingresos.RData")
+```

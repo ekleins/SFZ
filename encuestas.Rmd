@@ -1,0 +1,540 @@
+Encuestas SUFAZ-Compensación
+========================================================
+
+```{r date, echo=FALSE, comment="FECHA: "}
+Print(Sys.time())
+```
+
+
+Datos
+------------------
+Los datos de este análisis provienen del archivo que contiene la transcripción de las encuestas suministrado por Abelardo Riera el 02 agosto 2013. El archivo originalmente en excel fue convertido a csv e importado a R. 
+
+
+
+```{r setup, cache=FALSE, include=FALSE}
+opts_chunk$set(comment="", warning=FALSE, background="#E0E0E0")
+library(ggplot2)
+library(Hmisc)
+library(plyr)
+library(reshape2)
+library(car)  ## para usar la función recode
+options(width=120)
+descstat=function(x)c(media=mean(x, na.rm=T), mediana=median(x, na.rm=T), mínimo=min(x, na.rm=T), máximo=max(x,na.rm=T), de=sd(x, na.rm=T), cv=100*sd(x, na.rm=T)/mean(x, na.rm=T), n=length(x))   ## función para calcular estadísticos básicos
+```
+
+```{r data_import}
+setwd("~/Proyectos/SUFAZ/datos")
+encuestas <- read.csv("~/Proyectos/SUFAZ/datos/encuestas.csv")
+encuestas$Comunidad[encuestas$Comunidad=="RÍO SECO"]="RIO SECO"   ##Hay unos rio seco con acento. Los acomodo
+encuestas$Comunidad=factor(encuestas$Comunidad)
+```
+
+Transformación de las variables de tiempo
+
+```{r time_transform}
+horai=strptime(encuestas$HoraInicioEncuesta, "%H:%M")
+encuestas$HoraInicial=as.numeric(format(horai, "%H"))+as.numeric(format(horai, "%M"))/60
+encuestas$FechaEncuesta=as.Date(encuestas$FechaEncuesta, "%m/%d/%Y")
+encuestas$DiaEncuesta=as.integer(format(encuestas$FechaEncuesta, "%d"))
+str(encuestas, list.len=999)
+```
+
+Descripción de las Respuestas
+------------------
+
+Definición del grupo de comunidades
+
+Las comunidades se agrupan de acuerdo con el siguiente esquema: 
+Grupo 1: CAYUDE, PRUDENCIO, LA HUESA
+Grupo 2: EL COCUY, EL MURO, MEDANO BLANCO, POPORO
+Grupo 3: PUNTA CARDON, TIGUADARE
+Grupo 4: RIO SECO, OCOROTE
+
+La distribución original del número de encuestas por las comunidades originales es la siguiente:
+
+```{r comunidad.ori}
+table(encuestas$Comunidad)
+```
+
+La distribución de las encuestas de acuerdo a la re-clasificación de las comunidades es la siguiente:
+
+```{r com_regroup, fig.width=12, fig.height=8}
+encuestas0=encuestas
+encuestas$Comunidad[encuestas$Comunidad=="OCOROTE"]="RIO SECO"
+encuestas$Comunidad[encuestas$Comunidad=="PRUDENCIO"]="CAYUDE"
+encuestas$Comunidad[encuestas$Comunidad=="LA HUESA"]="CAYUDE"
+encuestas$Comunidad[encuestas$Comunidad=="EL COCUY"]="MEDANO BLANCO"
+encuestas$Comunidad[encuestas$Comunidad=="EL MURO"]="MEDANO BLANCO"
+encuestas$Comunidad[encuestas$Comunidad=="POPORO"]="MEDANO BLANCO"
+encuestas$Comunidad[encuestas$Comunidad=="TIGUADARE"]="PUNTA CARDON"
+encuestas$Comunidad=factor(encuestas$Comunidad)
+table(encuestas$Comunidad)
+par(mar=c(10,4,4,2))
+bp=barplot(table(encuestas$Comunidad), las=2, ylab="No. Encuestas", ylim=c(0,120))
+text(bp,table(encuestas$Comunidad)+5, table(encuestas$Comunidad))
+```
+
+
+
+Número de embarcaciones por encuestado
+-------------------------
+
+```{r hist_embarcaciones, echo=FALSE, fig.width=8, fig.height=6}
+table(encuestas$CuantasEmbarcacionesPosee)
+embarcaciones=data.frame(Comunidad=encuestas$Comunidad, Embarcaciones=encuestas$CuantasEmbarcacionesPosee)
+embarcaciones=embarcaciones[complete.cases(embarcaciones),]
+cc=ggplot(embarcaciones, aes(factor(Embarcaciones)))
+cc+geom_bar(colour="black", fill="gray40")+xlab("No. Embarcaciones")+ ylab("No. Encuestados")
+# par(mar=c(10,4,4,2))
+# bp=barplot(table(encuestas$CuantasEmbarcacionesPosee), xlab="No. Embarcaciones", ylab="No. Encuestados", ylim=c(0,180))
+# text(bp,table(encuestas$CuantasEmbarcacionesPosee)+5, table(encuestas$CuantasEmbarcacionesPosee))
+```
+
+
+Número de embarcaciones por encuestado y por comunidad
+--------------------------
+
+```{r n_embarcaciones2, echo=FALSE, fig.width=16, fig.height=8}
+embarcaciones=data.frame(Comunidad=encuestas$Comunidad, Embarcaciones=encuestas$CuantasEmbarcacionesPosee)
+embarcaciones=embarcaciones[complete.cases(embarcaciones),]
+cc=ggplot(embarcaciones, aes(factor(Embarcaciones)))
+cc+geom_bar(colour="black", fill="gray40")+facet_grid(~Comunidad)+xlab("No. Embarcaciones")+ ylab("No. Encuestados")
+```
+
+
+Permiso de pesca vigente
+-----------------------
+
+```{r hist_permiso, echo=FALSE, fig.width=8, fig.height=6}
+table(encuestas$PermisoPescaVigente)
+Permiso=data.frame(Comunidad=encuestas$Comunidad, Permiso=encuestas$PermisoPescaVigente)
+Permiso=Permiso[complete.cases(Permiso),]
+cc=ggplot(Permiso, aes(factor(Permiso)))
+cc+geom_bar(colour="black", fill="gray40")+xlab("¿Permiso Vigente?")+ ylab("No. Encuestados")
+```
+
+
+Artes de pesca por embarcación
+------------------------
+
+```{r artes_pesca8}
+## aquí hay que generar un archivo melted
+artes=data.frame(Comunidad=encuestas$Comunidad, ChND=encuestas$ChinchorroNd, ChCamaron=encuestas$ChinchorroCamaronero, 
+                 ChParada=encuestas$ChinchorroParada, ChEncierro=encuestas$ChinchorroEncierroCerco, 
+                 ChGarete=encuestas$ChinchorroGareteDeriva, Palangre=encuestas$Palangre, Cordel=encuestas$Cordel)
+artes.rs=melt(artes, id="Comunidad")
+names(artes.rs)=c("Comunidad", "Arte", "Tiene")
+artes.rs1=artes.rs[artes.rs$Tiene==1,]
+table(artes.rs1$Arte)
+```
+
+```{r artes_pesca_total, fig.width=8, fig.height=6}
+artes.plot=ggplot(artes.rs1, aes(Arte))
+artes.plot+geom_bar(colour="black", fill="gray40")+ylab("Cantidad")
+```
+
+
+```{r artes_pesca_comunidad, fig.width=16, fig.height=8}
+artes.plot=ggplot(artes.rs1, aes(Arte))
+artes.plot+geom_bar(colour="black", fill="gray40")+ylab("Cantidad")+facet_grid(~Comunidad)+theme(axis.text.x=element_text(angle = 90, hjust = 0))
+```
+
+Duración de las faenas de pesca
+----------------------------------
+
+```{r faena_porsemana, fig.width=8, fig.height=6}
+faena.semana=ggplot(encuestas, aes(factor(NumeroFaenasPorSemana*NumFaenasxDia)))
+faena.semana+geom_bar(colour="black", fill="gray40")+ylab("Frecuencia")+xlab("No. Faenas por Semana")+ggtitle("Faenas por Semana")+theme(plot.title = element_text(face="bold", size=24))
+```
+
+```{r faena_porsemana_comunidad, fig.width=16, fig.height=8}
+faena.semana.com=ggplot(encuestas, aes(factor(NumeroFaenasPorSemana*NumFaenasxDia)))
+faena.semana.com+geom_bar(colour="black", fill="gray40")+ylab("Frecuencia")+xlab("No. Faenas por Semana")+facet_grid(~Comunidad)+theme(axis.text.x=element_text(angle = 90, hjust = 0))
+```
+
+Número de Faenas al Mes
+-------------------------
+
+```{r faena_porMes, fig.width=8, fig.height=6}
+faena.mes=ggplot(encuestas, aes(factor(NoFaenasMes)))
+faena.mes+geom_bar(colour="black", fill="gray40")+ylab("Frecuencia")+xlab("No. Faenas por Mes")+ggtitle("Faenas por Mes")+theme(plot.title = element_text(face="bold", size=24))
+```
+
+```{r faena_porMescomunidad, fig.width=16, fig.height=8}
+faena.mes.com=ggplot(encuestas, aes(factor(NoFaenasMes)))
+faena.mes.com+geom_bar(colour="black", fill="gray40")+ylab("Frecuencia")+xlab("No. Faenas por Mes")+facet_grid(~Comunidad)+theme(axis.text.x=element_text(angle = 90, hjust = 0))
+```
+
+
+Distribución de las capturas de las especies
+-----------------------------
+
+```{r especies_read} 
+## Aqui se usa el archivo especies
+especies <- read.csv("~/Proyectos/SUFAZ/datos/especies.csv")
+## re clasificación de las comunidades
+especies$Comunidad[especies$Comunidad=="RÍO SECO"]="RIO SECO"   ##Hay unos rio seco con acento. Los acomodo
+especies$Comunidad=factor(especies$Comunidad)
+especies0=especies
+especies$Comunidad[especies$Comunidad=="OCOROTE"]="RIO SECO"
+especies$Comunidad[especies$Comunidad=="PRUDENCIO"]="CAYUDE"
+especies$Comunidad[especies$Comunidad=="LA HUESA"]="CAYUDE"
+especies$Comunidad[especies$Comunidad=="EL COCUY"]="MEDANO BLANCO"
+especies$Comunidad[especies$Comunidad=="EL MURO"]="MEDANO BLANCO"
+especies$Comunidad[especies$Comunidad=="POPORO"]="MEDANO BLANCO"
+especies$Comunidad[especies$Comunidad=="TIGUADARE"]="PUNTA CARDON"
+especies$Comunidad=factor(especies$Comunidad)
+table(especies$Comunidad)
+especies.melt=melt(especies, id=c("NumEnc", "Comunidad", "Especie", "EspRank", "EspPrecio", "EspKg"))
+names(especies.melt)=c("NumEnc", "Comunidad", "Especie","EspRank", "EspPrecio", "EspKg", "Mes", "Pesca")
+
+## Clean up
+especies.melt=especies.melt[!especies.melt$Especie=="NINGUNA",]
+especies.melt=especies.melt[!especies.melt$EspKg==0,]
+especies.melt=especies.melt[complete.cases(especies.melt),]
+## Corrijo los precios de 600 y 800 que están en algunas encuestas de Rio Seco
+especies.melt$EspPrecio[especies.melt$EspPrecio==600]=60
+especies.melt$EspPrecio[especies.melt$EspPrecio==800]=80
+
+especies.melt0=especies.melt
+especies.melt$Pesca=as.logical(especies.melt$Pesca)
+especies.melt=especies.melt[especies.melt$Pesca,]  ## elimino los meses donde NO pescan
+especies.melt$EspGroup=rep(NA, length(especies.melt$Especie))
+
+## Agrupo las especies en las categorías de grupo de especie
+especies.melt$EspGroup[especies.melt$Especie=="BAGRE"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="CATALANA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="CHICHARRA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="CONCHUA-MERLUZA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="ANCHOA"]="PELAGICOS"
+especies.melt$EspGroup[especies.melt$Especie=="CACHICATO"]="PELAGICOS"
+especies.melt$EspGroup[especies.melt$Especie=="CAMARON"]="CAMARON"
+especies.melt$EspGroup[especies.melt$Especie=="CAMARÓN-LANGOSTINO"]="CAMARON"
+especies.melt$EspGroup[especies.melt$Especie=="CARRACHANA-CABAÑA"]="PELAGICOS"
+especies.melt$EspGroup[especies.melt$Especie=="CARACHANA-CABAÑA"]="PELAGICOS"
+especies.melt$EspGroup[especies.melt$Especie=="CARITE"]="PELAGICOS"
+especies.melt$EspGroup[especies.melt$Especie=="COJINÚA-CUJINUA"]="PELAGICOS"
+especies.melt$EspGroup[especies.melt$Especie=="COROCORO-PEORRO-MOCUSO"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="CUNARO"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="CURVINA-GUABINA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="CURVINATA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="JUREL"]="JUREL"
+especies.melt$EspGroup[especies.melt$Especie=="LANGOSTINO"]="CAMARON"
+especies.melt$EspGroup[especies.melt$Especie=="LISA-LEBRANCHE-GUARANARO"]="LISA"
+especies.melt$EspGroup[especies.melt$Especie=="MERO VARIOS"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="MOJARRA-CAITIPA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="PALOMETA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="PAMPANO"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="PARGO"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="PICUA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="RAYA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="REY"]="PELAGICOS"
+especies.melt$EspGroup[especies.melt$Especie=="RÓBALO-ROBALO"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="RONCO-RONCADOR"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="TAJALÍ-TAHALÍ-MACHETE"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="TONQUICHA"]="DEMERSALES"
+especies.melt$EspGroup[especies.melt$Especie=="ZORRA"]="PELAGICOS"
+especies.melt$EspGroup=as.factor(especies.melt$EspGroup)
+table(especies.melt$EspGroup)
+
+
+## Calculo el ingreso bruto por faena por especie
+especies.melt$EspIngB=especies.melt$EspKg*especies.melt$EspPrecio
+
+## Calculo Kilos totales por mes por comunidad y por grupo de especie
+especies.Kg=ddply(especies.melt, .(Comunidad, EspGroup, Mes), summarize, KgTotal=sum(EspKg), KgPromedio=mean(EspKg), KgMediana=median(EspKg))
+especies.Kg[is.na(especies.Kg)]=0  ## reemplazo losNA por cero
+## Calculo el ingreso total Kilos * Precio por mes por comunidad y por grupo de especie
+especies.Bs=ddply(especies.melt, .(Comunidad, EspGroup, Mes), summarize, BsTotal=sum(EspIngB), BsPromedio=mean(EspIngB), BsMediana=median(EspIngB))
+especies.Bs[is.na(especies.Bs)]=0   ## Reemplazo los NA por cero
+
+Desembarcos.Comunidad=ddply(especies.melt, .(Comunidad, EspGroup), summarize, mediana=median(EspKg, na.rm=T))
+print(Desembarcos.Comunidad)
+```
+
+
+Distribución estimada de las capturas para todas las comunidades en conjunto
+----------------------
+
+```{r especies_mes, fig.width=16, fig.height=8, warning=FALSE}
+table(especies.melt$EspGroup, especies.melt$Mes)
+ee=ggplot(especies.melt, aes(x=as.integer(Mes)))
+ee+stat_density(aes(ymax=..density.., ymin=-..density..), fill="green", colour="grey50", geom="ribbon")+facet_wrap(~EspGroup, ncol=3)+scale_x_discrete(limits=levels(especies.Bs$Mes)) +xlab("Meses")+labs(title="Estacionalidad de Especies: Todas las Comunidades") + theme(plot.title = element_text(size = rel(2)))
+
+```
+
+Respuestas para cada comunidad
+------------------------
+
+```{r especies_tabla, fig.width=16, fig.height=8, warning=FALSE}
+#table(especies.melt$Especie[especies.melt$Pesca], especies.melt$Mes[especies.melt$Pesca], especies.melt$Comunidad[especies.melt$Pesca])
+table(especies.melt$EspGroup, especies.melt$Mes, especies.melt$Comunidad)
+```
+
+```{r especiesG_CAYUDE, fig.width=16, fig.height=8, warning=FALSE}
+ee=ggplot(subset(especies.melt, Comunidad=="CAYUDE"), aes(x=as.integer(Mes)))
+ee+stat_density(aes(ymax=..density.., ymin=-..density..), fill="green", colour="grey50", geom="ribbon")+facet_wrap(~EspGroup, ncol=3)+scale_x_discrete(limits=levels(especies.Bs$Mes)) +xlab("Meses")+labs(title="Estacionalidad de Especies: EL CAYUDE") + theme(plot.title = element_text(size = rel(2)))
+```
+
+```{r especiesG_MEDBLAN, fig.width=16, fig.height=8, warning=FALSE}
+ee=ggplot(subset(especies.melt, Comunidad=="MEDANO BLANCO"), aes(x=as.integer(Mes)))
+ee+stat_density(aes(ymax=..density.., ymin=-..density..), fill="green", colour="grey50", geom="ribbon")+facet_wrap(~EspGroup, ncol=3)+scale_x_discrete(limits=levels(especies.Bs$Mes)) +xlab("Meses")+labs(title="Estacionalidad de Especies: MEDANO BLANCO") + theme(plot.title = element_text(size = rel(2)))
+```
+
+```{r especiesG_PTACARDON, fig.width=16, fig.height=8, warning=FALSE}
+ee=ggplot(subset(especies.melt, Comunidad=="PUNTA CARDON"), aes(x=as.integer(Mes)))
+ee+stat_density(aes(ymax=..density.., ymin=-..density..), fill="green", colour="grey50", geom="ribbon")+facet_wrap(~EspGroup, ncol=3)+scale_x_discrete(limits=levels(especies.Bs$Mes)) +xlab("Meses")+labs(title="Estacionalidad de Especies: PUNTA CARDON") + theme(plot.title = element_text(size = rel(2)))
+```
+
+```{r especiesG_RIOSECO, fig.width=16, fig.height=8, warning=FALSE}
+ee=ggplot(subset(especies.melt, Comunidad=="RIO SECO"), aes(x=as.integer(Mes)))
+ee+stat_density(aes(ymax=..density.., ymin=-..density..), fill="green", colour="grey50", geom="ribbon")+facet_wrap(~EspGroup, ncol=3)+scale_x_discrete(limits=levels(especies.Bs$Mes)) +xlab("Meses")+labs(title="Estacionalidad de Especies: RIO SECO") + theme(plot.title = element_text(size = rel(2)))
+```
+
+
+Estimación de desembarcos
+---------------------------------
+
+La información que sigue a continuación proviene de las respuestas a las preguntas que se refieren a las cuatro principales espeices que capturan, los meses donde se pescan, el máximo de kilos y el precio por kilo.
+
+Capturas totales por comunidad. Se suman el total de Kg por mes reportado en cada encuesta. Esto puede no tener sentido ya que el número de encuestados es diferente entre las comunidades.
+
+```{r Comunidad_kgtotal, warning=FALSE}
+especies.Kg.total=dcast(especies.Kg, Comunidad~Mes, sum, value.var="KgTotal")
+especies.Kg.prom=dcast(especies.Kg, Comunidad~Mes, max, value.var="KgPromedio")
+especies.Kg.median=dcast(especies.Kg, Comunidad~Mes, max, value.var="KgMediana")
+print(especies.Kg.total)
+print(especies.Kg.prom)
+print(especies.Kg.median)
+```
+
+Ahora multiplicando los kilos reportados por el precio para cada mes
+
+```{r Comunidad_bstotal, warning=FALSE}
+especies.Bs.total=dcast(especies.Bs, Comunidad~Mes, sum, value.var="BsTotal")
+especies.Bs.prom=dcast(especies.Bs, Comunidad~Mes, max, value.var="BsPromedio")
+especies.Bs.median=dcast(especies.Bs, Comunidad~Mes, max, value.var="BsMediana")
+print(especies.Bs.total)
+print(especies.Bs.prom)
+print(especies.Bs.median)
+```
+
+
+
+
+Estimación de Ingresos y Costos
+--------------------------
+
+Todos los cálculos son basados un mes de 30 días.
+
+Para calcular el ingreso es necesario sumar la captura por faena multiplicado por su precio y multiplicado por el número de faenas al mes. 
+
+Ingresos Brutos Mensuales
+
+```{r ingreso_mes, fig.width=8, fig.height=6, warning=FALSE}
+ingreso.bruto=as.numeric(with(encuestas, NoFaenasMes*(Esp1Precio*Esp1Kg + Esp2Precio*Esp2Kg + Esp3Precio*Esp3Kg + Esp4Precio*Esp4Kg)))
+summary(ingreso.bruto)
+## Por comunidad
+summarize(ingreso.bruto, by=encuestas$Comunidad, FUN=descstat)
+## Boxplot
+ingb=ggplot(encuestas,aes(x=encuestas$Comunidad, y=ingreso.bruto))
+ingb+geom_boxplot()+coord_flip()+ylim(0,1000000)+ylab("Ingreso Bruto Mensual (Bs)")+xlab("")
+```
+
+Costos Mensuales
+
+```{r costos_mes}
+##cambio NA por 0
+encuestas$CostoPorFaenaGasolina[is.na(encuestas$CostoPorFaenaGasolina)]=0
+encuestas$CostoPorFaenaAceite[is.na(encuestas$CostoPorFaenaAceite)]=0
+encuestas$CostoPorFaenaComida[is.na(encuestas$CostoPorFaenaComida)]=0
+encuestas$CostoPorFaenaHielo[is.na(encuestas$CostoPorFaenaHielo)]=0
+encuestas$CostoPorFaenaCarnada[is.na(encuestas$CostoPorFaenaCarnada)]=0
+encuestas$CostoPorFaenaGasto1[is.na(encuestas$CostoPorFaenaGasto1)]=0
+encuestas$CostoPorFaenaGasto2[is.na(encuestas$CostoPorFaenaGasto2)]=0
+costos.mes=with(encuestas, NoFaenasMes*(CostoPorFaenaGasolina+CostoPorFaenaAceite+CostoPorFaenaComida+CostoPorFaenaHielo+CostoPorFaenaCarnada+CostoPorFaenaGasto1+CostoPorFaenaGasto2))
+encuestas$CostoFaena=with(encuestas, (CostoPorFaenaGasolina+CostoPorFaenaAceite+CostoPorFaenaComida+CostoPorFaenaHielo+CostoPorFaenaCarnada+CostoPorFaenaGasto1+CostoPorFaenaGasto2))
+## Costos por Faena
+ddply(encuestas, .(Comunidad), summarize, CostoFaena=median(CostoFaena, na.rm=T))
+descstat(ingreso.bruto-costos.mes)
+```
+
+Costos Anuales
+
+```{r costos_anuales}
+## Cambio NA por 0
+encuestas$CostoAnualEmb[is.na(encuestas$CostoAnualEmb)]=0
+encuestas$CostoAnualMotores[is.na(encuestas$CostoAnualMotores)]=0
+encuestas$CostoAnualArtesRedes[is.na(encuestas$CostoAnualArtesRedes)]=0
+encuestas$CostoAnualArtesAnzuelo[is.na(encuestas$CostoAnualArtesAnzuelo)]=0
+encuestas$CostoAnualOtros1[is.na(encuestas$CostoAnualOtros1)]=0
+encuestas$CostoAnualOtros2[is.na(encuestas$CostoAnualOtros2)]=0
+encuestas$CostoPermisoDePescaEmb[is.na(encuestas$CostoPermisoDePescaEmb)]=0
+encuestas$CostoPermisoDePescaTripulantes[is.na(encuestas$CostoPermisoDePescaTripulantes)]=0
+encuestas$CostoInspeccionesCertificaciones[is.na(encuestas$CostoInspeccionesCertificaciones)]=0
+encuestas$CostoOtro[is.na(encuestas$CostoOtro)]=0
+encuestas$PagoCredito[is.na(encuestas$PagoCredito)]=0
+
+## Costo total anual
+costo.anual=with(encuestas,CostoAnualEmb+CostoAnualMotores+CostoAnualArtesRedes+CostoAnualArtesAnzuelo+CostoAnualOtros1+CostoAnualOtros2+CostoPermisoDePescaEmb+CostoPermisoDePescaTripulantes+CostoInspeccionesCertificaciones+CostoOtro+PagoCredito)
+costo.anual.mensual=costo.anual/12.0
+
+## rendimineto neto
+rendimiento.mensual=ingreso.bruto-(costo.anual.mensual+costos.mes)
+descstat(rendimiento.mensual)
+```
+
+Precio de alquiler mesual de la embarcación
+-------------------
+
+```{r alquiler_embarcacion}
+descstat(encuestas$PrecioAlquilerMesEmbarcacion)
+precio.emb=ggplot(encuestas,aes(x=encuestas$Comunidad, y=encuestas$PrecioAlquilerMesEmbarcacion))
+precio.emb+geom_boxplot()+coord_flip()+ylim(0,250000)+ylab("Precio Alquiler Mensual Embarcación (Bs)")+xlab("")
+ddply(encuestas, .(Comunidad), summarize, Precio.promedio=mean(PrecioAlquilerMesEmbarcacion, na.rm=T), Precio.mediana=median(PrecioAlquilerMesEmbarcacion, na.rm=T), Precio.sd=sd(PrecioAlquilerMesEmbarcacion, na.rm=T), Precio.min=min(PrecioAlquilerMesEmbarcacion, na.rm=T), Precio.max=max(PrecioAlquilerMesEmbarcacion, na.rm=T))
+```
+
+Rendimiento basado en el alquiler de la embarcación
+-------------------------
+
+```{r rend_embarcacion}
+descstat(encuestas$PrecioAlquilerMesEmbarcacion-(costo.anual.mensual+costos.mes))
+summarize(encuestas$PrecioAlquilerMesEmbarcacion-(costo.anual.mensual+costos.mes), by=encuestas$Comunidad, FUN=descstat)
+```
+
+
+Compensación
+--------------------------
+
+Lucro Cesante: Cuantos aceptarían la compensación basada en lucro cesante:
+
+```{r lucrocesante, fig.width=8, fig.height=6, warning=FALSE}
+lc=ggplot(encuestas, aes(factor(LucroCesante)))
+lc+geom_bar(colour="black", fill="gray40")+xlab("Acepta Lucro Cesante?")+ ylab("No. Encuestados")
+tt=as.data.frame(table(encuestas$LucroCesante))
+tt$Rel=100*tt$Freq/sum(tt$Freq)
+tt
+```
+
+Modelo de Valuación Contingente
+
+
+Se aplica un modelo logístico (glm, family=binomial) a las respuestas binarias de acepta / no acepta el monto de compensación preguntado. Se remueven los NA de la tabla de datos. 
+
+```{r valcontingente,  fig.width=8, fig.height=6, warning=FALSE }
+valor=encuestas$ValorDAC
+respuesta=as.integer(factor(encuestas$AceptaDAC, levels=c("NO", "SI", "NR")))-1
+respuesta[respuesta==2]=NA
+vc=data.frame(valor,respuesta)
+vc=vc[complete.cases(vc),]
+modelo=glm(respuesta~valor, data=vc, family="binomial")
+summary(modelo)
+plot(vc$valor, jitter(vc$respuesta, 0.1), xlab="Valor de Compensación", ylab="0 -> No Acepta, 1 ->Acepta", xlim=c(5000,80000))
+points(vc$valor, modelo$fitted.values, col="blue", pch=19)
+compensacion=seq(5000,80000,5000)
+DAC.pred=predict(modelo, data.frame(valor=compensacion), type="response")
+lines(compensacion, DAC.pred, col="red")
+print(data.frame(compensacion, DAC.pred))
+```
+
+Si no acepta el valor propuesto, entonces que valor aceptaría:
+
+```{r dacminima, fig.width=8, fig.height=6, warning=FALSE}
+descstat(encuestas$DACMinima)
+summary(encuestas$DACMinima)
+
+##por Comunidad
+ddply(encuestas, .(Comunidad), summarize, DAC.promedio=mean(DACMinima,na.rm=T), DAC.sd=sd(DACMinima,na.rm=T), DAC.mediana=median(DACMinima,na.rm=T), DAC.min=min(DACMinima,na.rm=T), DAC.max=max(DACMinima,na.rm=T))
+
+## figura
+dac.plot=ggplot(subset(encuestas,!is.na(encuestas$DACMinima)), aes(DACMinima))
+dac.plot+geom_histogram(binwidth=10000, fill="coral", colour="gray50")
+## por comunidad
+dac.plot+geom_histogram(binwidth=10000, fill="coral", colour="gray50")+facet_grid(Comunidad~.)
+##Tabla de descripticvos del DACpor comunidad
+dac=data.frame(Comunidad=encuestas$Comunidad,  DAC=encuestas$DACMinima)
+dac=dac[complete.cases(dac),]
+ddply(dac, .(Comunidad), summarize, mean=mean(DAC), median=median(DAC), sd=sd(DAC), min=min(DAC), max=max(DAC), n=length(DAC))
+
+```
+
+
+Precio de venta de la embarcación
+------------------
+
+```{r precio_emb}
+encuestas$PrecioVentaEmb[encuestas$PrecioVentaEmb==0]=NA
+ddply(encuestas, .(Comunidad), summarize, mean=mean(PrecioVentaEmb, na.rm=T), median=median(PrecioVentaEmb,na.rm=T), sd=sd(PrecioVentaEmb, na.rm=T), min=min(PrecioVentaEmb,na.rm=T), max=max(PrecioVentaEmb,na.rm=T), n=length(PrecioVentaEmb))
+
+```
+
+
+Datos Generales 
+-----------------------
+
+```{r datos_generales, fig.width=8, fig.height=6, warning=FALSE}
+
+## EDAD
+descstat(encuestas$EdadEncuestado)
+ddply(encuestas, .(Comunidad), summarize, mean=mean(EdadEncuestado, na.rm=T), median=median(EdadEncuestado,na.rm=T), sd=sd(EdadEncuestado ,na.rm=T), min=min(EdadEncuestado,na.rm=T), max=max(EdadEncuestado,na.rm=T), n=length(EdadEncuestado))
+ggplot(encuestas, aes(x=Comunidad, y=EdadEncuestado))+geom_boxplot(fill="coral")+ylab("Edad del Encuestado")
+
+## Tiempo de Residencia en años
+descstat(encuestas$TiempoResidenciaComunidadMeses/12)
+ddply(encuestas, .(Comunidad), summarize, mean=mean(TiempoResidenciaComunidadMeses/12, na.rm=T), median=median(TiempoResidenciaComunidadMeses/12,na.rm=T), sd=sd(TiempoResidenciaComunidadMeses/12 ,na.rm=T), min=min(TiempoResidenciaComunidadMeses/12,na.rm=T), max=max(TiempoResidenciaComunidadMeses/12,na.rm=T), n=length(TiempoResidenciaComunidadMeses/12))
+ggplot(encuestas, aes(x=Comunidad, y=TiempoResidenciaComunidadMeses/12))+geom_boxplot(fill="coral")+ylab("Tiempo de Residencia (años)")
+
+## Misiones
+table(encuestas$Mision1)
+
+## Educación
+table(encuestas$Educacion, encuestas$Comunidad)
+
+## Ingreso Faenas MALAS (POR MES)
+
+## Se asume que los valores reportados sonpor DIA por lo que para estimar el ingreso mensual es necesario multiplicar por el número de días de ausencia al mes.
+
+ddply(encuestas, .(Comunidad), summarize, mean=mean(IngresoFaenaMalas*DiasAusenciaMes, na.rm=T), median=median(IngresoFaenaMalas*DiasAusenciaMes,na.rm=T), sd=sd(IngresoFaenaMalas*DiasAusenciaMes ,na.rm=T), min=min(IngresoFaenaMalas*DiasAusenciaMes,na.rm=T), max=max(IngresoFaenaMalas*DiasAusenciaMes,na.rm=T), n=length(IngresoFaenaMalas*DiasAusenciaMes), na=sum(is.na(IngresoFaenaMalas*DiasAusenciaMes)))
+
+## Ingreso Faenas BUENAS (POR MES)
+ddply(encuestas, .(Comunidad), summarize, mean=mean(IngresoFaenasBuenas*DiasAusenciaMes, na.rm=T), median=median(IngresoFaenasBuenas*DiasAusenciaMes,na.rm=T), sd=sd(IngresoFaenasBuenas*DiasAusenciaMes ,na.rm=T), min=min(IngresoFaenasBuenas*DiasAusenciaMes,na.rm=T), max=max(IngresoFaenasBuenas*DiasAusenciaMes,na.rm=T), n=length(IngresoFaenasBuenas*DiasAusenciaMes), na=sum(is.na(IngresoFaenasBuenas*DiasAusenciaMes)))
+
+```
+
+
+Porcentaje de afectación del SUFAZ
+-----------------------
+
+Basado en las respuestas a la pregunta de cuanto ha sido la reducción antes y despues del SUFAZ, calculo el porcentaje de reducción estimado. Para esto, recodifico las variables de la siguiente forma:   
+
+'<10%'=5; '10% - 30%'=15; '31% - 50%'=40; '51% - 70%'=60; '71% - 90%'=80; '>91%'=95; 'NR'=NA   
+
+El valor recodificado lo convierto a número y la reducción estimada se calcula restando la reducción manifestada por el SUFAZ menos la manifestada previa al SUFAZ.   
+
+```{r afectacion_SUFAZ, fig.width=8, fig.height=10}
+## recodificación de variables
+afec.antes=recode(encuestas$PorcentajeAfectacionAntesDeSufaz, "'<10%'=5; '10% - 30%'=15; '31% - 50%'=40; '51% - 70%'=60; '71% - 90%'=80; '>91%'=95; 'NR'=NA", as.factor.result=F)
+afec.despues=recode(encuestas$ReduccionProduccionPesqueraSufaz, "'<10%'=5; '10% - 30%'=15; '31% - 50%'=40; '51% - 70%'=60; '71% - 90%'=80; '>91%'=95; 'NR'=NA", as.factor.result=F)
+par(mfrow=c(2,1))
+barplot(table(afec.antes), ylab="No. Respuestas", xlab="% Reducción", main="ANTES")
+barplot(table(afec.despues), ylab="No. Respuestas", xlab="% Reducción", main="DESPUES")
+```
+
+```{r afectacion_SUFAZ2, fig.width=8, fig.height=6}
+afec.ad=afec.despues-afec.antes
+afec.ad=afec.ad[complete.cases(afec.ad)]  ## remuevo los NA
+table(afec.ad)
+par(mfrow=c(1,1))
+barplot(table(afec.ad), main="Afectación total (después - antes)")
+barplot(table(afec.ad[afec.ad>0]), main="Afectación total (>0%) ")
+descstat(afec.ad)  ## total
+descstat(afec.ad[afec.ad>0]) ##mayor que cero
+```
+
+
+Save workspace
+------------------
+```{r save.workspace}
+save.image("~/Proyectos/SUFAZ/datos/encuestas.RData")
+```
