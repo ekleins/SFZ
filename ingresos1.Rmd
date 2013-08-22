@@ -152,6 +152,8 @@ embarcacion.integrado2=merge(encuestas[c("NumEnc", "NumFaenasxDia", "NoFaenasMes
 ```{r KgMes, echo=FALSE}
 ## kg por mes (corregir que los kg están sumados tantos meses pescan)
 ## OJO Dependiendo si se coloca 0 o NA en el caso de que no se reporten capturasla cosa cambia.
+##
+## 
 
 print("Calculos basados en TODAS las embarcaciones (no Pesca --> replace by 0)")
 
