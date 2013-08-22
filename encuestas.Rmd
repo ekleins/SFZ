@@ -19,6 +19,8 @@ library(Hmisc)
 library(plyr)
 library(reshape2)
 library(car)  ## para usar la función recode
+require(lubridate)   ## manejo de fechas/horas
+
 options(width=120)
 descstat=function(x)c(media=mean(x, na.rm=T), mediana=median(x, na.rm=T), mínimo=min(x, na.rm=T), máximo=max(x,na.rm=T), de=sd(x, na.rm=T), cv=100*sd(x, na.rm=T)/mean(x, na.rm=T), n=length(x))   ## función para calcular estadísticos básicos
 ```
@@ -33,10 +35,15 @@ encuestas$Comunidad=factor(encuestas$Comunidad)
 Transformación de las variables de tiempo
 
 ```{r time_transform}
-horai=strptime(encuestas$HoraInicioEncuesta, "%H:%M")
-encuestas$HoraInicial=as.numeric(format(horai, "%H"))+as.numeric(format(horai, "%M"))/60
-encuestas$FechaEncuesta=as.Date(encuestas$FechaEncuesta, "%m/%d/%Y")
-encuestas$DiaEncuesta=as.integer(format(encuestas$FechaEncuesta, "%d"))
+# horai=strptime(encuestas$HoraInicioEncuesta, "%H:%M")
+# encuestas$HoraInicial=as.numeric(format(horai, "%H"))+as.numeric(format(horai, "%M"))/60
+# encuestas$FechaEncuesta=as.Date(encuestas$FechaEncuesta, "%m/%d/%Y")
+# encuestas$DiaEncuesta=as.integer(format(encuestas$FechaEncuesta, "%d"))
+
+encuestas$HoraInicioEncuesta=hm(encuestas$HoraInicioEncuesta)
+encuestas$HoraFinEncuesta=hm(encuestas$HoraFinEncuesta)
+encuestas$FechaEncuesta=ymd(as.character(encuestas$FechaEncuesta), tz="VET")
+encuestas$DiaEncuesta=day(encuestas$FechaEncuesta)
 str(encuestas, list.len=999)
 ```
 
