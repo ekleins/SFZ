@@ -1,0 +1,71 @@
+DAC
+========================================================
+
+Calculo de la Disposición A ser Compensado
+
+
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
+opts_chunk$set(comment="", warning=FALSE, background="#E0E0E0", message=FALSE)
+library(ggplot2)
+library(Hmisc)
+library(plyr)
+library(reshape2)
+library(car)  ## para usar la función recode
+require(lubridate)   ## manejo de fechas/horas
+
+options(width=120)
+```
+
+```{r data_read, echo=FALSE}
+setwd("~/Proyectos/SUFAZ/datos")
+encuestas <- read.csv("~/Proyectos/SUFAZ/datos/encuestas.csv")
+encuestas$Comunidad[encuestas$Comunidad=="RÍO SECO"]="RIO SECO"   ##Hay unos rio seco con acento. Los acomodo
+
+## recode Comunidad
+encuestas$Comunidad[encuestas$Comunidad=="OCOROTE"]="RIO SECO"
+encuestas$Comunidad[encuestas$Comunidad=="PRUDENCIO"]="CAYUDE"
+encuestas$Comunidad[encuestas$Comunidad=="LA HUESA"]="CAYUDE"
+encuestas$Comunidad[encuestas$Comunidad=="EL COCUY"]="MEDANO BLANCO"
+encuestas$Comunidad[encuestas$Comunidad=="EL MURO"]="MEDANO BLANCO"
+encuestas$Comunidad[encuestas$Comunidad=="POPORO"]="MEDANO BLANCO"
+encuestas$Comunidad[encuestas$Comunidad=="TIGUADARE"]="PUNTA CARDON"
+encuestas$Comunidad=factor(encuestas$Comunidad)
+
+## DAC dataframe
+DAC=encuestas[c("Comunidad", "ValorDAC", "AceptaDAC", "DACMinima")]
+str(DAC)
+```
+
+```{r dac_recode,echo=FALSE}
+DAC$AceptaDAC[DAC$AceptaDAC=="NR"]=NA
+DAC$AceptaDAC=factor(DAC$AceptaDAC)
+DAC=DAC[complete.cases(DAC),]
+DAC2=DAC
+DAC2=DAC2[DAC2$AceptaDAC=="NO",]
+DAC2$AceptaDAC="SI"
+DAC2$AceptaDAC=factor(DAC2$AceptaDAC)
+DAC=DAC[,-4]
+DAC2=DAC2[,c("Comunidad", "AceptaDAC", "DACMinima")]
+names(DAC2)=c("Comunidad", "AceptaDAC", "ValorDAC")
+DAC=rbind(DAC, DAC2)
+DAC$AceptaDAC=as.integer(DAC$AceptaDAC)-1
+table(DAC$Comunidad, DAC$AceptaDAC)
+```
+
+Modelo General
+---------------------
+
+```{r modelo_general}
+modelo=glm(AceptaDAC~ValorDAC, data=DAC, family="binomial")
+summary(modelo)
+
+```
+
+```{r DAC_graph, echo=FALSE, fig.height=6, fig.width=8}
+plot(jitter(DAC$AceptaDAC, 0.1)~DAC$ValorDAC, pch=19, cex=0.75, col="blue", ylab="0->NO 1->SI", xlab="Compensación (Bs)")
+points(DAC$ValorDAC, modelo$fitted.values, col="red", pch=19, cex=0.75)
+compensacion=seq(5000,100000,2500)
+DAC.pred=predict(modelo, data.frame(ValorDAC=compensacion), type="response")
+lines(compensacion, DAC.pred, col="red")
+print(data.frame(compensacion, DAC.pred))
+```
