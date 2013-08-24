@@ -1,6 +1,8 @@
 DAC
 ========================================================
 
+##
+
 Calculo de la Disposición A ser Compensado
 
 
@@ -56,16 +58,99 @@ Modelo General
 ---------------------
 
 ```{r modelo_general}
+DAC0=DAC
+## DAC=subset(DAC0,Comunidad=="RIO SECO")
 modelo=glm(AceptaDAC~ValorDAC, data=DAC, family="binomial")
 summary(modelo)
 
 ```
 
 ```{r DAC_graph, echo=FALSE, fig.height=6, fig.width=8}
-plot(jitter(DAC$AceptaDAC, 0.1)~DAC$ValorDAC, pch=19, cex=0.75, col="blue", ylab="0->NO 1->SI", xlab="Compensación (Bs)")
-points(DAC$ValorDAC, modelo$fitted.values, col="red", pch=19, cex=0.75)
+plot(jitter(DAC$AceptaDAC, 0.1)~DAC$ValorDAC, pch=19, cex=0.90, col="coral3", ylab="0->NO 1->SI", xlab="Compensación (Bs)")
+points(DAC$ValorDAC, modelo$fitted.values, col="darkcyan", pch=19, cex=0.90)
 compensacion=seq(5000,100000,2500)
 DAC.pred=predict(modelo, data.frame(ValorDAC=compensacion), type="response")
-lines(compensacion, DAC.pred, col="red")
-print(data.frame(compensacion, DAC.pred))
+lines(compensacion, DAC.pred, col="black", lwd=2)
+legend("bottomright", "GENERAL", bty="n")
+format((data.frame(compensacion, 100*DAC.pred)), scientific=FALSE, digits=2)
 ```
+
+
+RIO SECO
+-----------------
+
+```{r modelo_rs}
+DAC=subset(DAC0,Comunidad=="RIO SECO")
+modelo=glm(AceptaDAC~ValorDAC, data=DAC, family="binomial")
+summary(modelo)
+
+```
+
+```{r DAC_graphrs, echo=FALSE, fig.height=6, fig.width=8}
+plot(jitter(DAC$AceptaDAC, 0.1)~DAC$ValorDAC, pch=19, cex=0.90, col="coral3", ylab="0->NO 1->SI", xlab="Compensación (Bs)")
+points(DAC$ValorDAC, modelo$fitted.values, col="darkcyan", pch=19, cex=0.90)
+compensacion=seq(5000,100000,2500)
+DAC.pred=predict(modelo, data.frame(ValorDAC=compensacion), type="response")
+lines(compensacion, DAC.pred, col="black", lwd=2)
+legend("bottomright", "RIO SECO", bty="n")
+format((data.frame(compensacion, 100*DAC.pred)), scientific=FALSE, digits=2)
+```
+
+PUNTA CARDON
+-----------------
+
+```{r modelo_PC}
+DAC=subset(DAC0,Comunidad=="PUNTA CARDON")
+modelo=glm(AceptaDAC~ValorDAC, data=DAC, family="binomial")
+summary(modelo)
+
+```
+
+```{r DAC_graphPC, echo=FALSE, fig.height=6, fig.width=8}
+plot(jitter(DAC$AceptaDAC, 0.1)~DAC$ValorDAC, pch=19, cex=0.90, col="coral3", ylab="0->NO 1->SI", xlab="Compensación (Bs)")
+points(DAC$ValorDAC, modelo$fitted.values, col="darkcyan", pch=19, cex=0.90)
+compensacion=seq(5000,100000,2500)
+DAC.pred=predict(modelo, data.frame(ValorDAC=compensacion), type="response")
+lines(compensacion, DAC.pred, col="black", lwd=2)
+legend("bottomright", "PUNTA CARDON", bty="n")
+format((data.frame(compensacion, 100*DAC.pred)), scientific=FALSE, digits=2)
+```
+
+MEDANO BLANCO
+-----------------
+
+```{r modelo_MD}
+DAC=subset(DAC0,Comunidad=="MEDANO BLANCO")
+modelo=glm(AceptaDAC~ValorDAC, data=DAC, family="binomial")
+summary(modelo)
+
+```
+
+```{r DAC_graphMD, echo=FALSE, fig.height=6, fig.width=8}
+plot(jitter(DAC$AceptaDAC, 0.1)~DAC$ValorDAC, pch=19, cex=0.90, col="coral3", ylab="0->NO 1->SI", xlab="Compensación (Bs)")
+points(DAC$ValorDAC, modelo$fitted.values, col="darkcyan", pch=19, cex=0.90)
+compensacion=seq(5000,100000,2500)
+DAC.pred=predict(modelo, data.frame(ValorDAC=compensacion), type="response")
+lines(compensacion, DAC.pred, col="black", lwd=2)
+legend("bottomright", "MEDANO BLANCO", bty="n")
+format((data.frame(compensacion, 100*DAC.pred)), scientific=FALSE, digits=2)
+```
+
+EL CAYUDE
+-----------------
+
+```{r modelo_CY}
+DAC=subset(DAC0,Comunidad=="CAYUDE")
+modelo=glm(AceptaDAC~ValorDAC, data=DAC, family="binomial")
+summary(modelo)
+
+```
+
+```{r DAC_graphCY, echo=FALSE, fig.height=6, fig.width=8}
+plot(jitter(DAC$AceptaDAC, 0.1)~DAC$ValorDAC, pch=19, cex=0.90, col="coral3", ylab="0->NO 1->SI", xlab="Compensación (Bs)")
+points(DAC$ValorDAC, modelo$fitted.values, col="darkcyan", pch=19, cex=0.90)
+compensacion=seq(5000,100000,2500)
+DAC.pred=predict(modelo, data.frame(ValorDAC=compensacion), type="response")
+lines(compensacion, DAC.pred, col="black", lwd=2)
+legend("bottomright", "EL CAYUDE", bty="n")
+format((data.frame(compensacion, 100*DAC.pred)), scientific=FALSE, digits=2)
