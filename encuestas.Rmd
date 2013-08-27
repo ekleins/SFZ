@@ -521,15 +521,15 @@ El valor recodificado lo convierto a número y la reducción estimada se calcula
 
 ```{r afectacion_SUFAZ, fig.width=8, fig.height=10}
 ## recodificación de variables
-afec.antes=recode(encuestas$PorcentajeAfectacionAntesDeSufaz, "'<10%'=5; '10% - 30%'=15; '31% - 50%'=40; '51% - 70%'=60; '71% - 90%'=80; '>91%'=95; 'NR'=NA", as.factor.result=F)
-afec.despues=recode(encuestas$ReduccionProduccionPesqueraSufaz, "'<10%'=5; '10% - 30%'=15; '31% - 50%'=40; '51% - 70%'=60; '71% - 90%'=80; '>91%'=95; 'NR'=NA", as.factor.result=F)
+encuestas$afec.antes=recode(encuestas$PorcentajeAfectacionAntesDeSufaz, "'<10%'=5; '10% - 30%'=15; '31% - 50%'=40; '51% - 70%'=60; '71% - 90%'=80; '>91%'=95; 'NR'=NA", as.factor.result=F)
+encuestas$afec.despues=recode(encuestas$ReduccionProduccionPesqueraSufaz, "'<10%'=5; '10% - 30%'=15; '31% - 50%'=40; '51% - 70%'=60; '71% - 90%'=80; '>91%'=95; 'NR'=NA", as.factor.result=F)
 par(mfrow=c(2,1))
-barplot(table(afec.antes), ylab="No. Respuestas", xlab="% Reducción", main="ANTES")
-barplot(table(afec.despues), ylab="No. Respuestas", xlab="% Reducción", main="DESPUES")
+barplot(table(encuestas$afec.antes), ylab="No. Respuestas", xlab="% Reducción", main="ANTES")
+barplot(table(encuestas$afec.despues), ylab="No. Respuestas", xlab="% Reducción", main="DESPUES")
 ```
 
 ```{r afectacion_SUFAZ2, fig.width=8, fig.height=6}
-afec.ad=afec.despues-afec.antes
+afec.ad=encuestas$afec.despues-encuestas$afec.antes
 afec.ad=afec.ad[complete.cases(afec.ad)]  ## remuevo los NA
 table(afec.ad)
 par(mfrow=c(1,1))

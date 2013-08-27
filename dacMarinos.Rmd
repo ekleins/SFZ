@@ -3,16 +3,16 @@ DAC
 
 ##
 
-Calculo de la Disposición A ser Compensado
+Calculo de la Disposición A ser Compensado MARINOS
 
 
 ```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
 opts_chunk$set(comment="", warning=FALSE, background="#E0E0E0", message=FALSE)
-require(ggplot2)
-require(Hmisc)
-require(plyr)
-require(reshape2)
-require(car)  ## para usar la función recode
+library(ggplot2)
+library(Hmisc)
+library(plyr)
+library(reshape2)
+library(car)  ## para usar la función recode
 require(lubridate)   ## manejo de fechas/horas
 
 options(width=120)
@@ -20,11 +20,11 @@ options(width=120)
 
 ```{r data_read, echo=FALSE}
 setwd("~/Proyectos/SUFAZ/datos")
-encuestas <- read.csv("~/Proyectos/SUFAZ/datos/encuestas.csv")
+encuestas <- read.csv("~/Proyectos/SUFAZ/datos/marinos.csv")
 encuestas$Comunidad[encuestas$Comunidad=="RÍO SECO"]="RIO SECO"   ##Hay unos rio seco con acento. Los acomodo
 
 ## recode Comunidad
-##encuestas$Comunidad[encuestas$Comunidad=="OCOROTE"]="RIO SECO"
+encuestas$Comunidad[encuestas$Comunidad=="OCOROTE"]="RIO SECO"
 encuestas$Comunidad[encuestas$Comunidad=="PRUDENCIO"]="CAYUDE"
 encuestas$Comunidad[encuestas$Comunidad=="LA HUESA"]="CAYUDE"
 encuestas$Comunidad[encuestas$Comunidad=="EL COCUY"]="MEDANO BLANCO"
@@ -60,9 +60,8 @@ Modelo General
 ```{r modelo_general}
 DAC0=DAC
 ## DAC=subset(DAC0,Comunidad=="RIO SECO")
-modelo=glm(AceptaDAC~ValorDAC, data=DAC, family=binomial(logit))
+modelo=glm(AceptaDAC~ValorDAC, data=DAC, family="binomial")
 summary(modelo)
-print(paste("Pseudo-R2 = ", 1-modelo$deviance/modelo$null.deviance))
 
 ```
 
@@ -84,7 +83,7 @@ RIO SECO
 DAC=subset(DAC0,Comunidad=="RIO SECO")
 modelo=glm(AceptaDAC~ValorDAC, data=DAC, family="binomial")
 summary(modelo)
-print(paste("Pseudo-R2 = ", 1-modelo$deviance/modelo$null.deviance))
+
 ```
 
 ```{r DAC_graphrs, echo=FALSE, fig.height=6, fig.width=8}
@@ -97,27 +96,6 @@ legend("bottomright", "RIO SECO", bty="n")
 format((data.frame(compensacion, 100*DAC.pred)), scientific=FALSE, digits=2)
 ```
 
-OCOROTE
------------------
-
-```{r modelo_oc}
-DAC=subset(DAC0,Comunidad=="OCOROTE")
-modelo=glm(AceptaDAC~ValorDAC, data=DAC, family="binomial")
-summary(modelo)
-print(paste("Pseudo-R2 = ", 1-modelo$deviance/modelo$null.deviance))
-```
-
-```{r DAC_graphoc, echo=FALSE, fig.height=6, fig.width=8}
-plot(jitter(DAC$AceptaDAC, 0.1)~DAC$ValorDAC, pch=19, cex=0.90, col="coral3", ylab="0->NO 1->SI", xlab="Compensación (Bs)")
-points(DAC$ValorDAC, modelo$fitted.values, col="darkcyan", pch=19, cex=0.90)
-compensacion=seq(5000,100000,2500)
-DAC.pred=predict(modelo, data.frame(ValorDAC=compensacion), type="response")
-lines(compensacion, DAC.pred, col="black", lwd=2)
-legend("bottomright", "OCOROTE", bty="n")
-format((data.frame(compensacion, 100*DAC.pred)), scientific=FALSE, digits=2)
-```
-
-
 PUNTA CARDON
 -----------------
 
@@ -125,7 +103,7 @@ PUNTA CARDON
 DAC=subset(DAC0,Comunidad=="PUNTA CARDON")
 modelo=glm(AceptaDAC~ValorDAC, data=DAC, family="binomial")
 summary(modelo)
-print(paste("Pseudo-R2 = ", 1-modelo$deviance/modelo$null.deviance))
+
 ```
 
 ```{r DAC_graphPC, echo=FALSE, fig.height=6, fig.width=8}
@@ -145,7 +123,7 @@ MEDANO BLANCO
 DAC=subset(DAC0,Comunidad=="MEDANO BLANCO")
 modelo=glm(AceptaDAC~ValorDAC, data=DAC, family="binomial")
 summary(modelo)
-print(paste("Pseudo-R2 = ", 1-modelo$deviance/modelo$null.deviance))
+
 ```
 
 ```{r DAC_graphMD, echo=FALSE, fig.height=6, fig.width=8}
@@ -165,7 +143,7 @@ EL CAYUDE
 DAC=subset(DAC0,Comunidad=="CAYUDE")
 modelo=glm(AceptaDAC~ValorDAC, data=DAC, family="binomial")
 summary(modelo)
-print(paste("Pseudo-R2 = ", 1-modelo$deviance/modelo$null.deviance))
+
 ```
 
 ```{r DAC_graphCY, echo=FALSE, fig.height=6, fig.width=8}

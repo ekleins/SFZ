@@ -157,11 +157,11 @@ embarcacion.integrado2=merge(encuestas[c("NumEnc", "NumFaenasxDia", "NoFaenasMes
 
 print("Calculos basados en TODAS las embarcaciones (no Pesca --> replace by 0)")
 
-embarcacion.integrado2$KgMes.Camaron=ifelse(embarcacion.integrado2$CAMARON.Meses!=0, with(embarcacion.integrado2, CAMARON.Kg/CAMARON.Meses),0)
-embarcacion.integrado2$KgMes.Demersales=ifelse(embarcacion.integrado2$DEMERSALES.Meses!=0, with(embarcacion.integrado2,DEMERSALES.Kg/DEMERSALES.Meses),0)
-embarcacion.integrado2$KgMes.Jurel=ifelse(embarcacion.integrado2$JUREL.Meses!=0, with(embarcacion.integrado2, JUREL.Kg/JUREL.Meses),0)
-embarcacion.integrado2$KgMes.Lisa=ifelse(embarcacion.integrado2$LISA.Meses!=0, with(embarcacion.integrado2, LISA.Kg/LISA.Meses),0)
-embarcacion.integrado2$KgMes.Pelagicos=ifelse(embarcacion.integrado2$PELAGICOS.Meses!=0, with(embarcacion.integrado2, PELAGICOS.Kg/PELAGICOS.Meses),0)
+embarcacion.integrado2$KgMes.Camaron=ifelse(embarcacion.integrado2$CAMARON.Meses!=0, with(embarcacion.integrado2, CAMARON.Kg/CAMARON.Meses),NA)
+embarcacion.integrado2$KgMes.Demersales=ifelse(embarcacion.integrado2$DEMERSALES.Meses!=0, with(embarcacion.integrado2,DEMERSALES.Kg/DEMERSALES.Meses),NA)
+embarcacion.integrado2$KgMes.Jurel=ifelse(embarcacion.integrado2$JUREL.Meses!=0, with(embarcacion.integrado2, JUREL.Kg/JUREL.Meses),NA)
+embarcacion.integrado2$KgMes.Lisa=ifelse(embarcacion.integrado2$LISA.Meses!=0, with(embarcacion.integrado2, LISA.Kg/LISA.Meses),NA)
+embarcacion.integrado2$KgMes.Pelagicos=ifelse(embarcacion.integrado2$PELAGICOS.Meses!=0, with(embarcacion.integrado2, PELAGICOS.Kg/PELAGICOS.Meses),NA)
 
 ddply(embarcacion.integrado2, .(Comunidad), summarize, CamaronKg.media=mean(KgMes.Camaron, na.rm=T), CamaronKg.median=median(KgMes.Camaron, na.rm=T), CamaronKg.sd=sd(KgMes.Camaron,na.rm=T), CamaronKg.min=min(KgMes.Camaron, na.rm=T), CamaronKg.max=max(KgMes.Camaron, na.rm=T))
 
@@ -176,6 +176,7 @@ ddply(embarcacion.integrado2, .(Comunidad), summarize, PelagicosKg.media=mean(Kg
 
 ```{r IngresoMes}
 ##Ingreso neto por mes
+## Calculo el ngreso neto mensual coocando CERO en los registros vacíos para poder sumarlos
 NetoMes.Camaron=ifelse(embarcacion.integrado2$CAMARON.Meses!=0, with(embarcacion.integrado2, ((CAMARON.Bs/CAMARON.Meses-CostoFaena)*DiasAusenciaMes)*CAMARON.Meses/12),0)
 NetoMes.Demersales=ifelse(embarcacion.integrado2$DEMERSALES.Meses!=0, with(embarcacion.integrado2,((DEMERSALES.Bs/DEMERSALES.Meses-CostoFaena)*DiasAusenciaMes)*DEMERSALES.Meses/12),0)
 NetoMes.Jurel=ifelse(embarcacion.integrado2$JUREL.Meses!=0, with(embarcacion.integrado2, ((JUREL.Bs/JUREL.Meses-CostoFaena)*DiasAusenciaMes)*JUREL.Meses/12),0)
@@ -183,6 +184,24 @@ NetoMes.Lisa=ifelse(embarcacion.integrado2$LISA.Meses!=0, with(embarcacion.integ
 NetoMes.Pelagicos=ifelse(embarcacion.integrado2$PELAGICOS.Meses!=0, with(embarcacion.integrado2, ((PELAGICOS.Bs/PELAGICOS.Meses-CostoFaena)*DiasAusenciaMes)*PELAGICOS.Meses/12),0)
 
 embarcacion.integrado2$TotalNetoMes=NetoMes.Camaron+NetoMes.Demersales+NetoMes.Jurel+NetoMes.Lisa+NetoMes.Pelagicos
+
+## Re establezco los NA en losnetos para poder calcular la mediana
+NetoMes.Camaron=ifelse(embarcacion.integrado2$CAMARON.Meses!=0, with(embarcacion.integrado2, ((CAMARON.Bs/CAMARON.Meses-CostoFaena)*DiasAusenciaMes)*CAMARON.Meses/12),NA)
+NetoMes.Demersales=ifelse(embarcacion.integrado2$DEMERSALES.Meses!=0, with(embarcacion.integrado2,((DEMERSALES.Bs/DEMERSALES.Meses-CostoFaena)*DiasAusenciaMes)*DEMERSALES.Meses/12),NA)
+NetoMes.Jurel=ifelse(embarcacion.integrado2$JUREL.Meses!=0, with(embarcacion.integrado2, ((JUREL.Bs/JUREL.Meses-CostoFaena)*DiasAusenciaMes)*JUREL.Meses/12),NA)
+NetoMes.Lisa=ifelse(embarcacion.integrado2$LISA.Meses!=0, with(embarcacion.integrado2, ((LISA.Bs/LISA.Meses-CostoFaena)*DiasAusenciaMes)*LISA.Meses/12),NA)
+NetoMes.Pelagicos=ifelse(embarcacion.integrado2$PELAGICOS.Meses!=0, with(embarcacion.integrado2, ((PELAGICOS.Bs/PELAGICOS.Meses-CostoFaena)*DiasAusenciaMes)*PELAGICOS.Meses/12),NA)
+
+embarcacion.integrado2$NetoMes.Camaron=NetoMes.Camaron
+embarcacion.integrado2$NetoMes.Demersales=NetoMes.Demersales
+embarcacion.integrado2$NetoMes.Jurel=NetoMes.Jurel
+embarcacion.integrado2$NetoMes.Lisa=NetoMes.Lisa
+embarcacion.integrado2$NetoMes.Pelagicos=NetoMes.Pelagicos
+
+
+ddply(embarcacion.integrado2, .(Comunidad), summarise, BsCamaron.media=mean(NetoMes.Camaron, na.rm=T), BsDemersales.media=mean(NetoMes.Demersales, na.rm=T), BsLisa.media=mean(NetoMes.Lisa, na.rm=T), BsJurel.media=mean(NetoMes.Jurel, na.rm=T), BsPelagicos.media=mean(NetoMes.Pelagicos, na.rm=T))
+
+ddply(embarcacion.integrado2, .(Comunidad), summarise, BsCamaron.mediana=median(NetoMes.Camaron, na.rm=T), BsDemersales.mediana=median(NetoMes.Demersales, na.rm=T), BsLisa.mediana=median(NetoMes.Lisa, na.rm=T), BsJurel.mediana=median(NetoMes.Jurel, na.rm=T), BsPelagicos.mediana=median(NetoMes.Pelagicos, na.rm=T))
 
 
 print("La estructura del archivo integrado por embarcación")
@@ -203,7 +222,7 @@ print(Ingreso.Mensual.Neto)
 
 ## Percentiles del Ingreso Mensual Neto
 
-ddply(embarcacion.integrado2, .(Comunidad), summarize, p5=quantile(TotalNetoMes, na.rm=T, probs=0.05), p10=quantile(TotalNetoMes, na.rm=T, probs=0.1), p25=quantile(TotalNetoMes, na.rm=T, probs=0.25), p50=quantile(TotalNetoMes, na.rm=T, probs=0.5), p75=quantile(TotalNetoMes, na.rm=T, probs=0.75), p90=quantile(TotalNetoMesl, na.rm=T, probs=0.9), p95=quantile(TotalNetoMes, na.rm=T, probs=0.95))
+ddply(embarcacion.integrado2, .(Comunidad), summarize, p5=quantile(TotalNetoMes, na.rm=T, probs=0.05), p10=quantile(TotalNetoMes, na.rm=T, probs=0.1), p25=quantile(TotalNetoMes, na.rm=T, probs=0.25), p50=quantile(TotalNetoMes, na.rm=T, probs=0.5), p75=quantile(TotalNetoMes, na.rm=T, probs=0.75), p90=quantile(TotalNetoMes, na.rm=T, probs=0.9), p95=quantile(TotalNetoMes, na.rm=T, probs=0.95))
 ```
 
 ```{r ingreso_boxplot, fig.width=8, fig.height=6}

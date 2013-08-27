@@ -1,0 +1,38 @@
+Cuadrantes de pesca
+========================================================
+
+Cálculo del porcentaje de cuadrantes sufaz y dentro del Golfete
+
+```{r setup, cache=FALSE, include=FALSE}
+opts_chunk$set(comment="", warning=FALSE, background="#E0E0E0")
+require(ggplot2)
+require(Hmisc)
+require(plyr)
+require(reshape2)
+require(car)  ## para usar la función recode
+require(lubridate)   ## manejo de fechas/horas
+
+options(width=120)
+descstat=function(x)c(media=mean(x, na.rm=T), mediana=median(x, na.rm=T), mínimo=min(x, na.rm=T), máximo=max(x,na.rm=T), de=sd(x, na.rm=T), cv=100*sd(x, na.rm=T)/mean(x, na.rm=T), n=length(x))   ## función para calcular estadísticos básicos
+```
+
+```{r data_import}
+setwd("~/Proyectos/SUFAZ/datos")
+cuadrantes <- read.csv("~/Proyectos/SUFAZ/datos/cuadrantes.csv")
+cuadrantes$Comunidad[cuadrantes$Comunidad=="RÍO SECO"]="RIO SECO"   ##Hay unos rio seco con acento. Los acomodo
+cuadranes$Comunidad=factor(cuadrantes$Comunidad)
+
+## recode Comunidad
+cuadrantes$Comunidad[cuadrantes$Comunidad=="OCOROTE"]="RIO SECO"
+cuadrantes$Comunidad[cuadrantes$Comunidad=="PRUDENCIO"]="CAYUDE"
+cuadrantes$Comunidad[cuadrantes$Comunidad=="LA HUESA"]="CAYUDE"
+cuadrantes$Comunidad[cuadrantes$Comunidad=="EL COCUY"]="MEDANO BLANCO"
+cuadrantes$Comunidad[cuadrantes$Comunidad=="EL MURO"]="MEDANO BLANCO"
+cuadrantes$Comunidad[cuadrantes$Comunidad=="POPORO"]="MEDANO BLANCO"
+cuadrantes$Comunidad[cuadrantes$Comunidad=="TIGUADARE"]="PUNTA CARDON"
+cuadrantes$Comunidad=factor(cuadrantes$Comunidad)
+```
+
+```{r tabla}
+ddply(cuadrantes,. (Comunidad), summarise, total.media=mean(CuadTotal, na.rm=T), total.max=max(CuadTotal, na.rm=T), sufaz.media=mean(100*CuadSufaz/CuadTotal, na.rm=T), golfete.media=mean(100*CuadGolfete/CuadTotal, na.rm=T), afuera.media=mean(100*CuadFuera/CuadTotal, na.rm=T))
+```
