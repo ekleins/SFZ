@@ -534,7 +534,7 @@ afec.ad=afec.ad[complete.cases(afec.ad)]  ## remuevo los NA
 table(afec.ad)
 par(mfrow=c(1,1))
 barplot(table(afec.ad), main="Afectación total (después - antes)")
-barplot(table(afec.ad[afec.ad>0]), main="Afectación total (>0%) ")
+barplot(table(afec.ad[afec.ad>0]), main="Afectación total", col="coral", xlab="% de afectación")
 descstat(afec.ad)  ## total
 descstat(afec.ad[afec.ad>0]) ##mayor que cero
 ```
